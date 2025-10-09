@@ -66,5 +66,5 @@ do_install() {
     install -m 0644 ${S}/include/linlib.h ${D}${includedir}/
 }
 
-FILES:${PN} = "${libdir}"
-FILES:${PN}-dev = "${includedir} ${libdir}"
+FILES:${PN} = "${libdir}/*.so.* "
+FILES:${PN}-dev = "${includedir}/* ${libdir}/*.so"
