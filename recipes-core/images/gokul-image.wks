@@ -1,0 +1,11 @@
+# Boot partition (FAT32)
+part boot --source bootimg-partition --ondisk mmcblk0 --fstype=vfat --label boot --size=64 --active
+
+# rootfsA (ext4)
+part --source rootfs --ondisk mmcblk0 --fstype=ext4 --label rootfsA --size=2048
+
+# rootfsB (ext4)
+part --ondisk mmcblk0 --fstype=ext4 --label rootfsB --size=2048
+
+#optional data partition (ext4)
+part --ondisk mmcblk0 --fstype=ext4 --label data --size=512

@@ -1,0 +1,920 @@
+From e0ed9172d5f5abe338975eaabdde3f3da5cbaa12 Mon Sep 17 00:00:00 2001
+From: Gokul M <gokulshiva77@gmail.com>
+Date: Wed, 8 Oct 2025 14:19:52 +0200
+Subject: [PATCH] Fixed Build Error
+
+Upstream-Status: Pending
+
+
+---
+ Makefile                        | 19 +++++++++++--------
+ canlib/Makefile                 | 10 +++++-----
+ canlib/examples/readTimerTest.c |  2 +-
+ common/installscript.sh         | 22 ++++++++++++----------
+ common/uninstallscript.sh       | 28 ++++++++++++++--------------
+ config.mak                      | 16 ++++++++--------
+ dkms/Makefile                   | 14 +++++++-------
+ leaf/installscript.sh           |  6 ++++--
+ leaf/uninstallscript.sh         | 30 +++++++++++++++---------------
+ linlib/Makefile                 |  8 ++++----
+ mhydra/installscript.sh         | 18 ++++++++++--------
+ mhydra/uninstallscript.sh       | 30 +++++++++++++++---------------
+ pcican/installscript.sh         | 18 +++++++++---------
+ pcican/uninstallscript.sh       | 14 +++++++-------
+ pcican2/installscript.sh        | 18 +++++++++---------
+ pcican2/uninstallscript.sh      | 12 ++++++------
+ pciefd/installscript.sh         | 18 +++++++++---------
+ pciefd/uninstallscript.sh       | 14 +++++++-------
+ usbcanII/installscript.sh       | 17 +++++++++--------
+ usbcanII/uninstallscript.sh     | 30 +++++++++++++++---------------
+ virtualcan/installscript.sh     | 24 ++++++++++++------------
+ virtualcan/uninstallscript.sh   | 12 ++++++------
+ 22 files changed, 195 insertions(+), 185 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index e5ce72e..85b4527 100644
+--- a/Makefile
++++ b/Makefile
+@@ -177,7 +177,10 @@ kvflash-mmap: canlib
+ 	$(MAKE) -C kvflash-mmap
+ 
+ install:
+-	@for dir in $(DRIVERS) ; do cd $$dir; echo Installing $$dir;./installscript.sh || exit 1; cd ..; done
++	@for dir in $(DRIVERS) ; do \
++	cd $$dir; echo Installing $$dir; \
++	./installscript.sh $(INSTALL_MODULE_PATH)|| exit 1; \
++	cd ..; done
+ 	$(MAKE) -C canlib install
+ 	$(MAKE) -C linlib install
+ 
+@@ -217,13 +220,13 @@ endef
+ 
+ 
+ define check_for_kvaser_usb_devices
+-	if lsusb -d 0bfd: > /dev/null ; then \
+-		echo '*****************************************************'; \
+-		echo 'WARNING: Found connected Kvaser USB device(s)!'; \
+-		echo '         Unplug them before installing the drivers.'; \
+-		echo '*****************************************************'; \
+-		echo ''; \
+-	fi
++# 	if lsusb -d 0bfd: > /dev/null ; then \
++# 		echo '*****************************************************'; \
++# 		echo 'WARNING: Found connected Kvaser USB device(s)!'; \
++# 		echo '         Unplug them before installing the drivers.'; \
++# 		echo '*****************************************************'; \
++# 		echo ''; \
++# 	fi
+ endef
+ 
+ HOSTNAME ?= $(shell uname -n)
+diff --git a/canlib/Makefile b/canlib/Makefile
+index adcf664..ce76422 100644
+--- a/canlib/Makefile
++++ b/canlib/Makefile
+@@ -145,14 +145,14 @@ examples: canlib
+ 	$(CC) $(CFLAGS) $(LIBCFLAGS) -MM $< > $@
+ 
+ install:
+-	$(MAKE) -C examples install
+-	rm -f $(DESTDIR)$(libdir)/$(LIBNAME)
+-	rm -f $(DESTDIR)$(libdir)/$(SONAME)
+-	rm -f $(DESTDIR)$(libdir)/$(LIBRARY)
++# 	$(MAKE) -C examples install
++# 	rm -f $(DESTDIR)$(libdir)/$(LIBNAME)
++# 	rm -f $(DESTDIR)$(libdir)/$(SONAME)
++# 	rm -f $(DESTDIR)$(libdir)/$(LIBRARY)
+ 	$(INSTALL_LIB) -D $(OBJDIR)/$(LIBRARY) $(DESTDIR)$(libdir)/$(LIBRARY)
+ 	ln -sf $(LIBRARY) $(DESTDIR)$(libdir)/$(LIBNAME)
+ 	ln -sf $(LIBRARY) $(DESTDIR)$(libdir)/$(SONAME)
+-	$(LDCONFIG)
++# 	$(LDCONFIG)
+ 	$(INSTALL_DATA) -D ../include/canlib.h $(DESTDIR)$(includedir)/canlib.h
+ 	$(INSTALL_DATA) -D ../include/canstat.h $(DESTDIR)$(includedir)/canstat.h
+ 	$(INSTALL_DATA) -D ../include/obsolete.h $(DESTDIR)$(includedir)/obsolete.h
+diff --git a/canlib/examples/readTimerTest.c b/canlib/examples/readTimerTest.c
+index 86a231b..12f9fb3 100644
+--- a/canlib/examples/readTimerTest.c
++++ b/canlib/examples/readTimerTest.c
+@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
+         }
+         printf("Time=%u ms (%u)\n", time, time - last);
+         gettimeofday(&tv, NULL);
+-        printf("system:%lu\n", tv.tv_sec * 1000 + tv.tv_usec / 1000 - lastsys);
++        printf("system:%llu\n", (unsigned long long)(tv.tv_sec * 1000 + tv.tv_usec / 1000 - lastsys));
+         last = time;
+         lastsys = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+         sleep(1);
+diff --git a/common/installscript.sh b/common/installscript.sh
+index a1f0012..8f5d8c8 100755
+--- a/common/installscript.sh
++++ b/common/installscript.sh
+@@ -62,6 +62,7 @@
+ #
+ #  -----------------------------------------------------------------------------
+ #
++INSTALL_MODULE_PATH="$1"
+ 
+ MODNAME=kvcommon
+ DEPMOD=`which depmod`
+@@ -90,18 +91,19 @@ if [ $DKMS_HOOK -eq 0 ]; then
+     echo "***********************************************************************"
+   fi
+ 
+-  install -d -m 755 /lib/modules/$KERNEL_VER/kernel/drivers/usb/misc
+-  install -m 644 $MODNAME.ko /lib/modules/$KERNEL_VER/kernel/drivers/usb/misc
++  install -d -m 755 $INSTALL_MODULE_PATH
++  install -m 644 $MODNAME.ko $INSTALL_MODULE_PATH/$MODNAME.ko
++  # cp $MODNAME.ko $INSTALL_MODULE_PATH/$MODNAME.ko
+   if [ "$?" -ne 0 ] ; then
+     exit 1
+   fi
+ fi
+ 
+-if [ "$#" -gt 0 ] && [ $1 = "develinstall" ] ; then
+-  echo "Ignoring $DEPMOD -a for now.."
+-else
+-  $DEPMOD -a
+-  if [ "$?" -ne 0 ] ; then
+-    echo Failed to execute $DEPMOD -a
+-  fi
+-fi
++# if [ "$#" -gt 0 ] && [ $1 = "develinstall" ] ; then
++#   echo "Ignoring #$DEPMOD -a for now.."
++# else
++#   #$DEPMOD -a
++#   if [ "$?" -ne 0 ] ; then
++#    echo Failed to execute #$DEPMOD -a
++#   fi
++# fi
+diff --git a/common/uninstallscript.sh b/common/uninstallscript.sh
+index 0b6cfea..89c3bb7 100755
+--- a/common/uninstallscript.sh
++++ b/common/uninstallscript.sh
+@@ -73,7 +73,7 @@ print_usage() {
+   echo "Usage: uninstallscript.sh [-p] [-d] [-h]"
+   echo
+   echo "  -p    Uninstall all versions of $MODNAME"
+-  echo "  -d    Developer install, ignores $DEPMOD -a"
++  echo "  -d    Developer install, ignores #$DEPMOD -a"
+   echo "  -h    Prints this usage message"
+ }
+ 
+@@ -101,21 +101,21 @@ if [ "$PURGE" = true ] ; then
+     find /lib/modules/*/kernel/drivers/usb/misc/ -name $MODNAME.ko -exec rm -f {} +
+ 
+ # Need to loop in case installer was run several times on different kernel versions
+-elif test -f "$DIR/kernel_ver"; then
+-  while read line; do
+-    rm -f /lib/modules/$line/kernel/drivers/usb/misc/$MODNAME.ko
+-  done < "$DIR/kernel_ver"
+-  rm -f "$DIR/kernel_ver"
++#elif test -f "$DIR/kernel_ver"; then
++#  while read line; do
++#    rm -f /lib/modules/$line/kernel/drivers/usb/misc/$MODNAME.ko
++#  done < "$DIR/kernel_ver"
++#  rm -f "$DIR/kernel_ver"
+ # If user for some reason deleted kernel_ver we try deleting in current kernel
+-else
+-  rm -f /lib/modules/`uname -r`/kernel/drivers/usb/misc/$MODNAME.ko
+-fi
++#else
++#  rm -f /lib/modules/`uname -r`/kernel/drivers/usb/misc/$MODNAME.ko
++#fi
+ 
+ if [ "$DEVEL" = true ] ; then
+-  echo "Ignoring $DEPMOD -a for now.."
++  echo "Ignoring #$DEPMOD -a for now.."
+ else
+-  $DEPMOD -a
+-  if [ "$?" -ne 0 ] ; then
+-    echo Failed to execute $DEPMOD -a
+-  fi
++  #$DEPMOD -a
++  # if [ "$?" -ne 0 ] ; then
++#    echo Failed to execute #$DEPMOD -a
++#  fi
+ fi
+diff --git a/config.mak b/config.mak
+index 16ce497..a978557 100644
+--- a/config.mak
++++ b/config.mak
+@@ -189,14 +189,14 @@ endif
+ clean:
+ 	@echo --------------------------------------------------------------------
+ 	@echo "Cleaning $(KV_MODULE_NAME)" $(IS_DEBUG)
+-	rm -f $(foreach suffix, o mod mod.o ko mod.c, $(KV_MODULE_NAME).$(suffix))            \
+-	      $(foreach suffix, o.cmd mod.o.cmd ko.cmd mod.cmd, .$(KV_MODULE_NAME).$(suffix)) \
+-	      .modules.order.cmd .Module.symvers.cmd .cache.mk                                \
+-	      modules.order Module.symvers new_modules.conf                                   \
+-	      $(SRCS:%.c=%.o)                                                                 \
+-	      $(join $(dir $(SRCS)),$(addprefix .,$(notdir $(patsubst %.c,%.o.cmd,$(SRCS))))) \
+-	      $(join $(dir $(SRCS)),$(addprefix .,$(notdir $(patsubst %.c,%.o.d,$(SRCS)))))
+-	rm -rf .tmp_versions
++# 	rm -f $(foreach suffix, o mod mod.o ko mod.c, $(KV_MODULE_NAME).$(suffix))            \
++# 	      $(foreach suffix, o.cmd mod.o.cmd ko.cmd mod.cmd, .$(KV_MODULE_NAME).$(suffix)) \
++# 	      .modules.order.cmd .Module.symvers.cmd .cache.mk                                \
++# 	      modules.order Module.symvers new_modules.conf                                   \
++# 	      $(SRCS:%.c=%.o)                                                                 \
++# 	      $(join $(dir $(SRCS)),$(addprefix .,$(notdir $(patsubst %.c,%.o.cmd,$(SRCS))))) \
++# 	      $(join $(dir $(SRCS)),$(addprefix .,$(notdir $(patsubst %.c,%.o.d,$(SRCS)))))
++# 	rm -rf .tmp_versions
+ 	@echo --------------------------------------------------------------------
+ 
+ 
+diff --git a/dkms/Makefile b/dkms/Makefile
+index 7ec0f20..72f88c8 100644
+--- a/dkms/Makefile
++++ b/dkms/Makefile
+@@ -146,11 +146,11 @@ clean:
+ 	@for dir in $(SUBDIRS) ; do cd $$dir; $(MAKE) clean; cd ..; done
+ 
+ define check_for_kvaser_usb_devices
+-	if lsusb -d 0bfd: > /dev/null ; then \
+-		echo '*****************************************************'; \
+-		echo 'WARNING: Found connected Kvaser USB device(s)!'; \
+-		echo '         Unplug them before installing the drivers.'; \
+-		echo '*****************************************************'; \
+-		echo ''; \
+-	fi
++# 	if lsusb -d 0bfd: > /dev/null ; then \
++# 		echo '*****************************************************'; \
++# 		echo 'WARNING: Found connected Kvaser USB device(s)!'; \
++# 		echo '         Unplug them before installing the drivers.'; \
++# 		echo '*****************************************************'; \
++# 		echo ''; \
++# 	fi
+ endef
+diff --git a/leaf/installscript.sh b/leaf/installscript.sh
+index f3707a5..3285e25 100755
+--- a/leaf/installscript.sh
++++ b/leaf/installscript.sh
+@@ -62,6 +62,7 @@
+ #
+ #  -----------------------------------------------------------------------------
+ #
++INSTALL_MODULE_PATH="$1"
+ 
+ MODNAME=leaf
+ DEPMOD=`which depmod`
+@@ -77,8 +78,9 @@ if [ "$1" = "dkms-install" -o "$1" = "dkms-load" ]; then
+ fi
+ 
+ if [ $DKMS_HOOK -eq 0 ]; then
+-  install -d -m 755 /lib/modules/$KERNEL_VER/kernel/drivers/usb/misc/
+-  install -m 644 $MODNAME.ko /lib/modules/$KERNEL_VER/kernel/drivers/usb/misc/$MODNAME.ko
++  install -d -m 755 $INSTALL_MODULE_PATH
++  install -m 644 $MODNAME.ko $INSTALL_MODULE_PATH/$MODNAME.ko
++  # cp $MODNAME.ko $INSTALL_MODULE_PATH/$MODNAME.ko
+   if [ "$?" -ne 0 ] ; then
+     exit 1
+   fi
+diff --git a/leaf/uninstallscript.sh b/leaf/uninstallscript.sh
+index 6928000..1fc7a9c 100755
+--- a/leaf/uninstallscript.sh
++++ b/leaf/uninstallscript.sh
+@@ -66,7 +66,7 @@
+ MODNAME=leaf
+ DEPMOD=`which depmod`
+ SOCKETCAN_DRIVER=kvaser_usb
+-MODPROBE_DIR=/etc/modprobe.d
++#MODPROBE_DIR=/etc/modprobe.d
+ BLACKLIST_FILE=$MODPROBE_DIR/blacklist-$SOCKETCAN_DRIVER.conf
+ DIR="${0%/*}"
+ DEVEL=
+@@ -76,7 +76,7 @@ print_usage() {
+   echo "Usage: uninstallscript.sh [-p] [-d] [-h]"
+   echo
+   echo "  -p    Uninstall all versions of $MODNAME"
+-  echo "  -d    Developer install, ignores $DEPMOD -a"
++  echo "  -d    Developer install, ignores #$DEPMOD -a"
+   echo "  -h    Prints this usage message"
+ }
+ 
+@@ -104,15 +104,15 @@ if [ "$PURGE" = true ] ; then
+     find /lib/modules/*/kernel/drivers/usb/misc/ -name $MODNAME.ko -exec rm -f {} +
+ 
+ # Need to loop in case installer was run several times on different kernel versions
+-elif test -f "$DIR/kernel_ver"; then
+-  while read line; do
+-    rm -f /lib/modules/$line/kernel/drivers/usb/misc/$MODNAME.ko
+-  done < "$DIR/kernel_ver"
+-  rm -f "$DIR/kernel_ver"
++#elif test -f "$DIR/kernel_ver"; then
++#  while read line; do
++#    rm -f /lib/modules/$line/kernel/drivers/usb/misc/$MODNAME.ko
++#  done < "$DIR/kernel_ver"
++#  rm -f "$DIR/kernel_ver"
+ # If user for some reason deleted kernel_ver we try deleting in current kernel
+-else
+-  rm -f /lib/modules/`uname -r`/kernel/drivers/usb/misc/$MODNAME.ko
+-fi
++#else
++#  rm -f /lib/modules/`uname -r`/kernel/drivers/usb/misc/$MODNAME.ko
++#fi
+ 
+ 
+ if [ -f $BLACKLIST_FILE ] ; then
+@@ -121,10 +121,10 @@ if [ -f $BLACKLIST_FILE ] ; then
+ fi
+ 
+ if [ "$DEVEL" = true ] ; then
+-  echo "Ignoring $DEPMOD -a for now.."
++  echo "Ignoring #$DEPMOD -a for now.."
+ else
+-  $DEPMOD -a
+-  if [ "$?" -ne 0 ] ; then
+-    echo Failed to execute $DEPMOD -a
+-  fi
++  #$DEPMOD -a
++  # if [ "$?" -ne 0 ] ; then
++#    echo Failed to execute #$DEPMOD -a
++#  fi
+ fi
+diff --git a/linlib/Makefile b/linlib/Makefile
+index 98f3227..bfec4c1 100644
+--- a/linlib/Makefile
++++ b/linlib/Makefile
+@@ -119,13 +119,13 @@ $(LIBRARY): $(DEPS) $(OTHERDEPS) $(OBJS)
+ 	$(CC) -M $(CFLAGS) $< | sed s/\\.o/.d/> $@
+ 
+ install:
+-	rm -f $(DESTDIR)$(libdir)/$(LIBNAME)
+-	rm -f $(DESTDIR)$(libdir)/$(SONAME)
+-	rm -f $(DESTDIR)$(libdir)/$(LIBRARY)
++# 	rm -f $(DESTDIR)$(libdir)/$(LIBNAME)
++# 	rm -f $(DESTDIR)$(libdir)/$(SONAME)
++# 	rm -f $(DESTDIR)$(libdir)/$(LIBRARY)
+ 	$(INSTALL_LIB) -D $(OBJDIR)/$(LIBRARY) $(DESTDIR)$(libdir)/$(LIBRARY)
+ 	ln -sf $(LIBRARY) $(DESTDIR)$(libdir)/$(LIBNAME)
+ 	ln -sf $(LIBRARY) $(DESTDIR)$(libdir)/$(SONAME)
+-	$(LDCONFIG) -X
++# 	$(LDCONFIG) -X
+ 	$(INSTALL_DATA) -D ../include/linlib.h $(DESTDIR)$(includedir)/linlib.h
+ 
+ uninstall:
+diff --git a/mhydra/installscript.sh b/mhydra/installscript.sh
+index 31b4e29..4b270d9 100755
+--- a/mhydra/installscript.sh
++++ b/mhydra/installscript.sh
+@@ -62,12 +62,13 @@
+ #
+ #  -----------------------------------------------------------------------------
+ #
++INSTALL_MODULE_PATH="$1"
+ 
+ MODNAME=mhydra
+ DEPMOD=`which depmod`
+ KERNEL_VER=`uname -r` # Kernel version at install time
+ SOCKETCAN_DRIVER=kvaser_usb
+-MODPROBE_DIR=/etc/modprobe.d
++# MODPROBE_DIR=/etc/modprobe.d
+ BLACKLIST_FILE=$MODPROBE_DIR/blacklist-$SOCKETCAN_DRIVER.conf
+ 
+ # Determine whether or not this is called by DKMS
+@@ -76,9 +77,10 @@ if [ "$1" = "dkms-install" -o "$1" = "dkms-load" ]; then
+   DKMS_HOOK=1
+ fi
+ 
++
+ if [ $DKMS_HOOK -eq 0 ]; then
+-  install -d -m 755 /lib/modules/$KERNEL_VER/kernel/drivers/usb/misc/
+-  install -m 644 $MODNAME.ko /lib/modules/$KERNEL_VER/kernel/drivers/usb/misc/$MODNAME.ko
++  install -d -m 755 $INSTALL_MODULE_PATH/kernel/drivers/usb/misc/
++  install -m 644 $MODNAME.ko $INSTALL_MODULE_PATH/kernel/drivers/usb/misc/$MODNAME.ko
+   if [ "$?" -ne 0 ] ; then
+     exit 1
+   fi
+@@ -86,7 +88,7 @@ fi
+ 
+ # Remove previously installed obsolete driver script, modprobe config and
+ # udev rules
+-rm -f /usr/sbin/$MODNAME.sh $MODPROBE_DIR/kvaser.conf /etc/udev/rules.d/10-kvaser.rules
++# rm -f /usr/sbin/$MODNAME.sh $MODPROBE_DIR/kvaser.conf /etc/udev/rules.d/10-kvaser.rules
+ 
+ modprobe -r $MODNAME 2> /dev/null
+ rm -f /dev/$MODNAME[0-9]*
+@@ -101,7 +103,7 @@ if [ ! -f $BLACKLIST_FILE ] ; then
+   echo "blacklist $SOCKETCAN_DRIVER" > $BLACKLIST_FILE
+ fi
+ 
+-$DEPMOD -a
+-if [ "$?" -ne 0 ] ; then
+-  echo Failed to execute $DEPMOD -a
+-fi
++#$DEPMOD -a
++# if [ "$?" -ne 0 ] ; then
++#   echo Failed to execute $DEPMOD -a
++# fi
+diff --git a/mhydra/uninstallscript.sh b/mhydra/uninstallscript.sh
+index d534de7..1875805 100755
+--- a/mhydra/uninstallscript.sh
++++ b/mhydra/uninstallscript.sh
+@@ -66,7 +66,7 @@
+ MODNAME=mhydra
+ DEPMOD=`which depmod`
+ SOCKETCAN_DRIVER=kvaser_usb
+-MODPROBE_DIR=/etc/modprobe.d
++#MODPROBE_DIR=/etc/modprobe.d
+ BLACKLIST_FILE=$MODPROBE_DIR/blacklist-$SOCKETCAN_DRIVER.conf
+ DIR="${0%/*}"
+ DEVEL=
+@@ -76,7 +76,7 @@ print_usage() {
+   echo "Usage: uninstallscript.sh [-p] [-d] [-h]"
+   echo
+   echo "  -p    Uninstall all versions of $MODNAME"
+-  echo "  -d    Developer install, ignores $DEPMOD -a"
++  echo "  -d    Developer install, ignores #$DEPMOD -a"
+   echo "  -h    Prints this usage message"
+ }
+ 
+@@ -104,15 +104,15 @@ if [ "$PURGE" = true ] ; then
+     find /lib/modules/*/kernel/drivers/usb/misc/ -name $MODNAME.ko -exec rm -f {} +
+ 
+ # Need to loop in case installer was run several times on different kernel versions
+-elif test -f "$DIR/kernel_ver"; then
+-  while read line; do
+-    rm -f /lib/modules/$line/kernel/drivers/usb/misc/$MODNAME.ko
+-  done < "$DIR/kernel_ver"
+-  rm -f "$DIR/kernel_ver"
++#elif test -f "$DIR/kernel_ver"; then
++#  while read line; do
++#    rm -f /lib/modules/$line/kernel/drivers/usb/misc/$MODNAME.ko
++#  done < "$DIR/kernel_ver"
++#  rm -f "$DIR/kernel_ver"
+ # If user for some reason deleted kernel_ver we try deleting in current kernel
+-else
+-  rm -f /lib/modules/`uname -r`/kernel/drivers/usb/misc/$MODNAME.ko
+-fi
++#else
++#  rm -f /lib/modules/`uname -r`/kernel/drivers/usb/misc/$MODNAME.ko
++#fi
+ 
+ 
+ if [ -f $BLACKLIST_FILE ] ; then
+@@ -121,10 +121,10 @@ if [ -f $BLACKLIST_FILE ] ; then
+ fi
+ 
+ if [ "$DEVEL" = true ] ; then
+-  echo "Ignoring $DEPMOD -a for now.."
++  echo "Ignoring #$DEPMOD -a for now.."
+ else
+-  $DEPMOD -a
+-  if [ "$?" -ne 0 ] ; then
+-    echo Failed to execute $DEPMOD -a
+-  fi
++  #$DEPMOD -a
++  # if [ "$?" -ne 0 ] ; then
++#    echo Failed to execute #$DEPMOD -a
++#  fi
+ fi
+diff --git a/pcican/installscript.sh b/pcican/installscript.sh
+index 5d17f3f..e16ead4 100755
+--- a/pcican/installscript.sh
++++ b/pcican/installscript.sh
+@@ -62,14 +62,14 @@
+ #
+ #  -----------------------------------------------------------------------------
+ #
+-
++INSTALL_MODULE_PATH="$1"
+ DEV=pcican
+ MODNAME=kv$DEV
+ DEPMOD=`which depmod`
+ DIR="${0%/*}"
+ KERNEL_VER=`uname -r` # Kernel version at install time
+ SOCKETCAN_DRIVER=kvaser_pci
+-MODPROBE_DIR=/etc/modprobe.d
++#MODPROBE_DIR=/etc/modprobe.d
+ MODULES_LOAD_DIR=/etc/modules-load.d
+ BLACKLIST_FILE=$MODPROBE_DIR/blacklist-$SOCKETCAN_DRIVER.conf
+ 
+@@ -83,8 +83,8 @@ if [ "$1" = "dkms-install" -o "$1" = "dkms-load" ]; then
+ fi
+ 
+ if [ $DKMS_HOOK -eq 0 ]; then
+-  install -d -m 755 /lib/modules/$KERNEL_VER/kernel/drivers/char/
+-  install -m 644 $MODNAME.ko /lib/modules/$KERNEL_VER/kernel/drivers/char/
++  install -d -m 755 $INSTALL_MODULE_PATH/kernel/drivers/char/
++  install -m 644 $MODNAME.ko $INSTALL_MODULE_PATH/kernel/drivers/char/
+   if [ "$?" -ne 0 ] ; then
+     exit 1
+   fi
+@@ -109,12 +109,12 @@ fi
+ 
+ 
+ if [ "$#" -gt 0 ] && [ $1 = "develinstall" ] ; then
+-  echo "Ignoring $DEPMOD -a for now.."
++  echo "Ignoring #$DEPMOD -a for now.."
+ else
+-  $DEPMOD -a
+-  if [ "$?" -ne 0 ] ; then
+-    echo Failed to execute $DEPMOD -a
+-  fi
++  #$DEPMOD -a
++  # if [ "$?" -ne 0 ] ; then
++#    echo Failed to execute #$DEPMOD -a
++#  fi
+ fi
+ 
+ if [ "$#" -gt 0 ] && [ $1 = "load" -o "$1" = "dkms-load" ] ; then
+diff --git a/pcican/uninstallscript.sh b/pcican/uninstallscript.sh
+index 9829daa..997d904 100755
+--- a/pcican/uninstallscript.sh
++++ b/pcican/uninstallscript.sh
+@@ -67,7 +67,7 @@ DEV=pcican
+ MODNAME=kv$DEV
+ DEPMOD=`which depmod`
+ SOCKETCAN_DRIVER=kvaser_pci
+-MODPROBE_DIR=/etc/modprobe.d
++#MODPROBE_DIR=/etc/modprobe.d
+ MODULES_LOAD_DIR=/etc/modules-load.d
+ BLACKLIST_FILE=$MODPROBE_DIR/blacklist-$SOCKETCAN_DRIVER.conf
+ DIR="${0%/*}"
+@@ -78,7 +78,7 @@ print_usage() {
+   echo "Usage: uninstallscript.sh [-p] [-d] [-h]"
+   echo
+   echo "  -p    Uninstall all versions of $MODNAME"
+-  echo "  -d    Developer install, ignores $DEPMOD -a"
++  echo "  -d    Developer install, ignores #$DEPMOD -a"
+   echo "  -h    Prints this usage message"
+ }
+ 
+@@ -116,10 +116,10 @@ fi
+ rm -f $MODULES_LOAD_DIR/kvaser-$MODNAME.conf
+ 
+ if [ "$DEVEL" = true ] ; then
+-  echo "Ignoring $DEPMOD -a for now.."
++  echo "Ignoring #$DEPMOD -a for now.."
+ else
+-  $DEPMOD -a
+-  if [ "$?" -ne 0 ] ; then
+-    echo Failed to execute $DEPMOD -a
+-  fi
++  #$DEPMOD -a
++  # if [ "$?" -ne 0 ] ; then
++#    echo Failed to execute #$DEPMOD -a
++#  fi
+ fi
+diff --git a/pcican2/installscript.sh b/pcican2/installscript.sh
+index b045cb6..6848086 100755
+--- a/pcican2/installscript.sh
++++ b/pcican2/installscript.sh
+@@ -62,13 +62,13 @@
+ #
+ #  -----------------------------------------------------------------------------
+ #
+-
++INSTALL_MODULE_PATH="$1"
+ DEV=pcicanII
+ MODNAME=kv$DEV
+ DEPMOD=`which depmod`
+ DIR="${0%/*}"
+ KERNEL_VER=`uname -r` # Kernel version at install time
+-MODPROBE_DIR=/etc/modprobe.d
++#MODPROBE_DIR=/etc/modprobe.d
+ MODULES_LOAD_DIR=/etc/modules-load.d
+ 
+ # append to file in case installer is run several times on different kernels
+@@ -81,8 +81,8 @@ if [ "$1" = "dkms-install" -o "$1" = "dkms-load" ]; then
+ fi
+ 
+ if [ $DKMS_HOOK -eq 0 ]; then
+-  install -d -m 755 /lib/modules/$KERNEL_VER/kernel/drivers/char/
+-  install -m 644 $MODNAME.ko /lib/modules/$KERNEL_VER/kernel/drivers/char/
++  install -d -m 755 $INSTALL_MODULE_PATH/kernel/drivers/char/
++  install -m 644 $MODNAME.ko $INSTALL_MODULE_PATH/kernel/drivers/char/
+   if [ "$?" -ne 0 ] ; then
+     exit 1
+   fi
+@@ -96,12 +96,12 @@ modprobe -r $MODNAME 2> /dev/null
+ rm -f /dev/$DEV[0-9]*
+ 
+ if [ "$#" -gt 0 ] && [ $1 = "develinstall" ] ; then
+-  echo "Ignoring $DEPMOD -a for now.."
++  echo "Ignoring #$DEPMOD -a for now.."
+ else
+-  $DEPMOD -a
+-  if [ "$?" -ne 0 ] ; then
+-    echo Failed to execute $DEPMOD -a
+-  fi
++  #$DEPMOD -a
++  # if [ "$?" -ne 0 ] ; then
++#    echo Failed to execute #$DEPMOD -a
++#  fi
+ fi
+ 
+ if [ "$#" -gt 0 ] && [ $1 = "load" -o "$1" = "dkms-load" ] ; then
+diff --git a/pcican2/uninstallscript.sh b/pcican2/uninstallscript.sh
+index 3b32c6e..9ea9ec9 100755
+--- a/pcican2/uninstallscript.sh
++++ b/pcican2/uninstallscript.sh
+@@ -75,7 +75,7 @@ print_usage() {
+   echo "Usage: uninstallscript.sh [-p] [-d] [-h]"
+   echo
+   echo "  -p    Uninstall all versions of $MODNAME"
+-  echo "  -d    Developer install, ignores $DEPMOD -a"
++  echo "  -d    Developer install, ignores #$DEPMOD -a"
+   echo "  -h    Prints this usage message"
+ }
+ 
+@@ -108,10 +108,10 @@ fi
+ rm -f $MODULES_LOAD_DIR/kvaser-$MODNAME.conf
+ 
+ if [ "$DEVEL" = true ] ; then
+-  echo "Ignoring $DEPMOD -a for now.."
++  echo "Ignoring #$DEPMOD -a for now.."
+ else
+-  $DEPMOD -a
+-  if [ "$?" -ne 0 ] ; then
+-    echo Failed to execute $DEPMOD -a
+-  fi
++  #$DEPMOD -a
++  # if [ "$?" -ne 0 ] ; then
++#    echo Failed to execute #$DEPMOD -a
++#  fi
+ fi
+diff --git a/pciefd/installscript.sh b/pciefd/installscript.sh
+index fa8aeb4..add99af 100755
+--- a/pciefd/installscript.sh
++++ b/pciefd/installscript.sh
+@@ -62,14 +62,14 @@
+ #
+ #  -----------------------------------------------------------------------------
+ #
+-
++INSTALL_MODULE_PATH="$1"
+ DEV=pciefd
+ MODNAME=kv$DEV
+ DEPMOD=`which depmod`
+ DIR="${0%/*}"
+ KERNEL_VER=`uname -r` # Kernel version at install time
+ SOCKETCAN_DRIVER=kvaser_pciefd
+-MODPROBE_DIR=/etc/modprobe.d
++#MODPROBE_DIR=/etc/modprobe.d
+ MODULES_LOAD_DIR=/etc/modules-load.d
+ BLACKLIST_FILE=$MODPROBE_DIR/blacklist-$SOCKETCAN_DRIVER.conf
+ 
+@@ -83,8 +83,8 @@ if [ "$1" = "dkms-install" -o "$1" = "dkms-load" ]; then
+ fi
+ 
+ if [ $DKMS_HOOK -eq 0 ]; then
+-  install -d -m 755 /lib/modules/$KERNEL_VER/kernel/drivers/char/
+-  install -m 644 $MODNAME.ko /lib/modules/$KERNEL_VER/kernel/drivers/char/
++  install -d -m 755 $INSTALL_MODULE_PATH/kernel/drivers/char/
++  install -m 644 $MODNAME.ko $INSTALL_MODULE_PATH/kernel/drivers/char/
+   if [ "$?" -ne 0 ] ; then
+     exit 1
+   fi
+@@ -109,12 +109,12 @@ fi
+ 
+ 
+ if [ "$#" -gt 0 ] && [ $1 = "develinstall" ] ; then
+-  echo "Ignoring $DEPMOD -a for now.."
++  echo "Ignoring #$DEPMOD -a for now.."
+ else
+-  $DEPMOD -a
+-  if [ "$?" -ne 0 ] ; then
+-    echo Failed to execute $DEPMOD -a
+-  fi
++  #$DEPMOD -a
++  # if [ "$?" -ne 0 ] ; then
++#    echo Failed to execute #$DEPMOD -a
++#  fi
+ fi
+ 
+ if [ "$#" -gt 0 ] && [ $1 = "load" -o "$1" = "dkms-load" ] ; then
+diff --git a/pciefd/uninstallscript.sh b/pciefd/uninstallscript.sh
+index 4563f8d..f029774 100755
+--- a/pciefd/uninstallscript.sh
++++ b/pciefd/uninstallscript.sh
+@@ -67,7 +67,7 @@ DEV=pciefd
+ MODNAME=kv$DEV
+ DEPMOD=`which depmod`
+ SOCKETCAN_DRIVER=kvaser_pciefd
+-MODPROBE_DIR=/etc/modprobe.d
++#MODPROBE_DIR=/etc/modprobe.d
+ MODULES_LOAD_DIR=/etc/modules-load.d
+ BLACKLIST_FILE=$MODPROBE_DIR/blacklist-$SOCKETCAN_DRIVER.conf
+ DIR="${0%/*}"
+@@ -78,7 +78,7 @@ print_usage() {
+   echo "Usage: uninstallscript.sh [-p] [-d] [-h]"
+   echo
+   echo "  -p    Uninstall all versions of $MODNAME"
+-  echo "  -d    Developer install, ignores $DEPMOD -a"
++  echo "  -d    Developer install, ignores #$DEPMOD -a"
+   echo "  -h    Prints this usage message"
+ }
+ 
+@@ -116,10 +116,10 @@ fi
+ rm -f $MODULES_LOAD_DIR/kvaser-$MODNAME.conf
+ 
+ if [ "$DEVEL" = true ] ; then
+-  echo "Ignoring $DEPMOD -a for now.."
++  echo "Ignoring #$DEPMOD -a for now.."
+ else
+-  $DEPMOD -a
+-  if [ "$?" -ne 0 ] ; then
+-    echo Failed to execute $DEPMOD -a
+-  fi
++  #$DEPMOD -a
++  # if [ "$?" -ne 0 ] ; then
++#    echo Failed to execute #$DEPMOD -a
++#  fi
+ fi
+diff --git a/usbcanII/installscript.sh b/usbcanII/installscript.sh
+index dc7d158..be1b20b 100755
+--- a/usbcanII/installscript.sh
++++ b/usbcanII/installscript.sh
+@@ -62,12 +62,13 @@
+ #
+ #  -----------------------------------------------------------------------------
+ #
++INSTALL_MODULE_PATH="$1"
+ 
+ MODNAME=usbcanII
+ DEPMOD=`which depmod`
+ KERNEL_VER=`uname -r` # Kernel version at install time
+ SOCKETCAN_DRIVER=kvaser_usb
+-MODPROBE_DIR=/etc/modprobe.d
++#MODPROBE_DIR=/etc/modprobe.d
+ BLACKLIST_FILE=$MODPROBE_DIR/blacklist-$SOCKETCAN_DRIVER.conf
+ 
+ # Determine whether or not this is called by DKMS
+@@ -77,8 +78,8 @@ if [ "$1" = "dkms-install" -o "$1" = "dkms-load" ]; then
+ fi
+ 
+ if [ $DKMS_HOOK -eq 0 ]; then
+-  install -d -m 755 /lib/modules/$KERNEL_VER/kernel/drivers/usb/misc/
+-  install -m 644 $MODNAME.ko /lib/modules/$KERNEL_VER/kernel/drivers/usb/misc/$MODNAME.ko
++  install -d -m 755 $INSTALL_MODULE_PATH/kernel/drivers/usb/misc/
++  install -m 644 $MODNAME.ko $INSTALL_MODULE_PATH/kernel/drivers/usb/misc/$MODNAME.ko
+   if [ "$?" -ne 0 ] ; then
+     exit 1
+   fi
+@@ -86,7 +87,7 @@ fi
+ 
+ # Remove previously installed obsolete driver script, modprobe config and
+ # udev rules
+-rm -f /usr/sbin/$MODNAME.sh $MODPROBE_DIR/kvaser.conf /etc/udev/rules.d/10-kvaser.rules
++# rm -f /usr/sbin/$MODNAME.sh $MODPROBE_DIR/kvaser.conf /etc/udev/rules.d/10-kvaser.rules
+ 
+ modprobe -r $MODNAME 2> /dev/null
+ rm -f /dev/$MODNAME[0-9]*
+@@ -101,7 +102,7 @@ if [ ! -f $BLACKLIST_FILE ] ; then
+   echo "blacklist $SOCKETCAN_DRIVER" > $BLACKLIST_FILE
+ fi
+ 
+-$DEPMOD -a
+-if [ "$?" -ne 0 ] ; then
+-  echo Failed to execute $DEPMOD -a
+-fi
++#$DEPMOD -a
++# if [ "$?" -ne 0 ] ; then
++#   echo Failed to execute $DEPMOD -a
++# fi
+diff --git a/usbcanII/uninstallscript.sh b/usbcanII/uninstallscript.sh
+index ffe28b4..f644c3d 100755
+--- a/usbcanII/uninstallscript.sh
++++ b/usbcanII/uninstallscript.sh
+@@ -66,7 +66,7 @@
+ MODNAME=usbcanII
+ DEPMOD=`which depmod`
+ SOCKETCAN_DRIVER=kvaser_usb
+-MODPROBE_DIR=/etc/modprobe.d
++#MODPROBE_DIR=/etc/modprobe.d
+ BLACKLIST_FILE=$MODPROBE_DIR/blacklist-$SOCKETCAN_DRIVER.conf
+ DIR="${0%/*}"
+ DEVEL=
+@@ -76,7 +76,7 @@ print_usage() {
+   echo "Usage: uninstallscript.sh [-p] [-d] [-h]"
+   echo
+   echo "  -p    Uninstall all versions of $MODNAME"
+-  echo "  -d    Developer install, ignores $DEPMOD -a"
++  echo "  -d    Developer install, ignores #$DEPMOD -a"
+   echo "  -h    Prints this usage message"
+ }
+ 
+@@ -104,15 +104,15 @@ if [ "$PURGE" = true ] ; then
+     find /lib/modules/*/kernel/drivers/usb/misc/ -name $MODNAME.ko -exec rm -f {} +
+ 
+ # Need to loop in case installer was run several times on different kernel versions
+-elif test -f "$DIR/kernel_ver"; then
+-  while read line; do
+-    rm -f /lib/modules/$line/kernel/drivers/usb/misc/$MODNAME.ko
+-  done < "$DIR/kernel_ver"
+-  rm -f "$DIR/kernel_ver"
++#elif test -f "$DIR/kernel_ver"; then
++#  while read line; do
++#    rm -f /lib/modules/$line/kernel/drivers/usb/misc/$MODNAME.ko
++#  done < "$DIR/kernel_ver"
++#  rm -f "$DIR/kernel_ver"
+ # If user for some reason deleted kernel_ver we try deleting in current kernel
+-else
+-  rm -f /lib/modules/`uname -r`/kernel/drivers/usb/misc/$MODNAME.ko
+-fi
++#else
++#  rm -f /lib/modules/`uname -r`/kernel/drivers/usb/misc/$MODNAME.ko
++#fi
+ 
+ 
+ if [ -f $BLACKLIST_FILE ] ; then
+@@ -121,10 +121,10 @@ if [ -f $BLACKLIST_FILE ] ; then
+ fi
+ 
+ if [ "$DEVEL" = true ] ; then
+-  echo "Ignoring $DEPMOD -a for now.."
++  echo "Ignoring #$DEPMOD -a for now.."
+ else
+-  $DEPMOD -a
+-  if [ "$?" -ne 0 ] ; then
+-    echo Failed to execute $DEPMOD -a
+-  fi
++  #$DEPMOD -a
++  # if [ "$?" -ne 0 ] ; then
++#    echo Failed to execute #$DEPMOD -a
++#  fi
+ fi
+diff --git a/virtualcan/installscript.sh b/virtualcan/installscript.sh
+index 9328e82..1781a66 100755
+--- a/virtualcan/installscript.sh
++++ b/virtualcan/installscript.sh
+@@ -62,13 +62,13 @@
+ #
+ #  -----------------------------------------------------------------------------
+ #
+-
++INSTALL_MODULE_PATH="$1"
+ DEV=virtualcan
+ MODNAME=kv$DEV
+ DEPMOD=`which depmod`
+ DIR="${0%/*}"
+ KERNEL_VER=`uname -r` # Kernel version at install time
+-MODPROBE_DIR=/etc/modprobe.d
++#MODPROBE_DIR=/etc/modprobe.d
+ MODULES_LOAD_DIR=/etc/modules-load.d
+ 
+ # append to file in case installer is run several times on different kernels
+@@ -81,8 +81,8 @@ if [ "$1" = "dkms-install" -o "$1" = "dkms-load" ]; then
+ fi
+ 
+ if [ $DKMS_HOOK -eq 0 ]; then
+-  install -d -m 755 /lib/modules/$KERNEL_VER/kernel/drivers/char/
+-  install -m 644 $MODNAME.ko /lib/modules/$KERNEL_VER/kernel/drivers/char/
++  install -d -m 755 $INSTALL_MODULE_PATH/kernel/drivers/char/
++  install -m 644 $MODNAME.ko $INSTALL_MODULE_PATH/kernel/drivers/char/
+   if [ "$?" -ne 0 ] ; then
+     exit 1
+   fi
+@@ -95,14 +95,14 @@ rm -f /usr/sbin/$DEV.sh $MODPROBE_DIR/kvaser.conf $MODULES_LOAD_DIR/kvaser.conf
+ modprobe -r $MODNAME 2> /dev/null
+ rm -f /dev/$MODNAME[0-9]*
+ 
+-if [ "$#" -gt 0 ] && [ $1 = "develinstall" ] ; then
+-  echo "Ignoring $DEPMOD -a for now.."
+-else
+-  $DEPMOD -a
+-  if [ "$?" -ne 0 ] ; then
+-    echo Failed to execute $DEPMOD -a
+-  fi
+-fi
++# if [ "$#" -gt 0 ] && [ $1 = "develinstall" ] ; then
++#   echo "Ignoring #$DEPMOD -a for now.."
++# else
++#   $DEPMOD -a
++#   if [ "$?" -ne 0 ] ; then
++#    echo Failed to execute #$DEPMOD -a
++#   fi
++# fi
+ 
+ if [ "$#" -gt 0 ] && [ $1 = "load" -o "$1" = "dkms-load" ] ; then
+   modprobe $MODNAME
+diff --git a/virtualcan/uninstallscript.sh b/virtualcan/uninstallscript.sh
+index 41bc282..b079d07 100755
+--- a/virtualcan/uninstallscript.sh
++++ b/virtualcan/uninstallscript.sh
+@@ -75,7 +75,7 @@ print_usage() {
+   echo "Usage: uninstallscript.sh [-p] [-d] [-h]"
+   echo
+   echo "  -p    Uninstall all versions of $MODNAME"
+-  echo "  -d    Developer install, ignores $DEPMOD -a"
++  echo "  -d    Developer install, ignores #$DEPMOD -a"
+   echo "  -h    Prints this usage message"
+ }
+ 
+@@ -108,10 +108,10 @@ fi
+ rm -f $MODULES_LOAD_DIR/kvaser-$MODNAME.conf
+ 
+ if [ "$DEVEL" = true ] ; then
+-  echo "Ignoring $DEPMOD -a for now.."
++  echo "Ignoring #$DEPMOD -a for now.."
+ else
+-  $DEPMOD -a
+-  if [ "$?" -ne 0 ] ; then
+-    echo Failed to execute $DEPMOD -a
+-  fi
++  #$DEPMOD -a
++  # if [ "$?" -ne 0 ] ; then
++#    echo Failed to execute #$DEPMOD -a
++#  fi
+ fi

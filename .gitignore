@@ -1,0 +1,22 @@
+# VS Code settings directory
+.vscode/
+
+# Yocto build artifacts
+build/
+tmp/
+*.log
+*.cache
+
+# Backup files
+*~
+*.bak
+*.orig
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

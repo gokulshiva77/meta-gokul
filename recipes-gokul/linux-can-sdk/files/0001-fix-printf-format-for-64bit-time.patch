@@ -1,0 +1,17 @@
+From: Gokul M <gokulshiva77@gmail.com>
+Date: Wed, 8 Oct 2025 14:19:52 +0200
+Subject: [PATCH] Fixed Build Error
+
+Upstream-Status: Pending
+
+--- a/canlib/examples/readTimerTest.c
++++ b/canlib/examples/readTimerTest.c
+@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
+         }
+         printf("Time=%u ms (%u)\n", time, time - last);
+         gettimeofday(&tv, NULL);
+-        printf("system:%lu\n", tv.tv_sec * 1000 + tv.tv_usec / 1000 - lastsys);
++        printf("system:%llu\n", (unsigned long long)(tv.tv_sec * 1000 + tv.tv_usec / 1000 - lastsys));
+         last = time;
+         lastsys = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+         sleep(1);
